@@ -11,7 +11,7 @@ model User {
   id               String    @id @default(cuid())
   name             String?
   email            String    @unique
-  emailVerified    DateTime?
+  emailVerified    Boolean   @default(false)
   image            String?
   bio              String?
   githubId         String?   @unique
@@ -19,12 +19,60 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  accounts         Account[]
+  sessions         Session[]
   ownedProjects    Project[]
   ideaTickets      IdeaTicket[]
   discussions      Discussion[]
   comments         Comment[]
   projectMemberships UserProject[]
   ideaMemberships   UserIdea[]
+  collaborationRequests CollaborationRequest[]
+}
+
+model Account {
+  id                   String   @id @default(cuid())
+  userId               String
+  type                 String?
+  providerId           String
+  accountId            String
+  refreshToken         String?  @db.Text
+  accessToken          String?  @db.Text
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                String?
+  idToken              String?  @db.Text
+  password             String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
 }
 
 model Project {
@@ -35,9 +83,15 @@ model Project {
   deploymentUrl   String?
   ownerId         String
   owner           User     @relation(fields: [ownerId], references: [id])
-  aiGrade         String?
-  complexityScore Int?
+  overallScore    Int?
+  codeQuality     Int?
+  documentation   Int?
+  bestPractices   Int?
+  performance     Int?
   techStack       Json?
+  strengths       Json?
+  suggestions     Json?
+  summary         String?
   readme          String?
   status          String   @default("active")
   createdAt       DateTime @default(now())
@@ -45,6 +99,7 @@ model Project {
 
   members         UserProject[]
   discussions     Discussion[]
+  collaborationRequests CollaborationRequest[]
 }
 
 model UserProject {
@@ -54,6 +109,20 @@ model UserProject {
   role      String   @default("member")
   user      User     @relation(fields: [userId], references: [id])
   project   Project  @relation(fields: [projectId], references: [id])
+
+  @@unique([userId, projectId])
+}
+
+model CollaborationRequest {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, projectId])
 }
@@ -75,30 +144,30 @@ model IdeaTicket {
 }
 
 model UserIdea {
-  id        String     @id @default(cuid())
-  userId    String
-  ideaId    String
-  role      String     @default("member")
-  user      User       @relation(fields: [userId], references: [id])
-  idea      IdeaTicket @relation(fields: [ideaId], references: [id])
+  id     String     @id @default(cuid())
+  userId String
+  ideaId String
+  role   String     @default("member")
+  user   User       @relation(fields: [userId], references: [id])
+  idea   IdeaTicket @relation(fields: [ideaId], references: [id])
 
   @@unique([userId, ideaId])
 }
 
 model Discussion {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
+  id         String    @id @default(cuid())
+  title      String
+  content    String
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
   projectId  String?
-  project     Project? @relation(fields: [projectId], references: [id])
-  category    String
-  upvotes     Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  project    Project?  @relation(fields: [projectId], references: [id])
+  category   String
+  upvotes    Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  comments    Comment[]
+  comments   Comment[]
 }
 
 model Comment {
