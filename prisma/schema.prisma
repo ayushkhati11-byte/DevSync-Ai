@@ -28,6 +28,7 @@ model User {
   projectMemberships UserProject[]
   ideaMemberships   UserIdea[]
   collaborationRequests CollaborationRequest[]
+  notifications    Notification[]
 }
 
 model Account {
@@ -100,6 +101,21 @@ model Project {
   members         UserProject[]
   discussions     Discussion[]
   collaborationRequests CollaborationRequest[]
+  issues          Issue[]
+}
+
+model Issue {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("open")
+  priority    String   @default("medium")
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporterId  String
+  assigneeId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model UserProject {
@@ -134,6 +150,7 @@ model IdeaTicket {
   requiredRoles Json
   maxMembers   Int      @default(4)
   status       String   @default("open")
+  category     String?
   ownerId      String
   owner        User     @relation(fields: [ownerId], references: [id])
   repoUrl      String?
@@ -179,4 +196,21 @@ model Comment {
   discussion   Discussion @relation(fields: [discussionId], references: [id])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  notifications Notification[] @relation("CommentNotification")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  comment   Comment? @relation("CommentNotification", fields: [commentId], references: [id], onDelete: SetNull)
+  commentId String?
 }

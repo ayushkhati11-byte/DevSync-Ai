@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, X, LogOut, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Menu, X, LogOut, Sparkles, Bell, Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/session";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 const links = [
-  { href: "/explore", label: "Explore" },
+  { href: "/explore", label: "Projects" },
   { href: "/ideas", label: "Ideas" },
+  { href: "/users", label: "Users" },
   { href: "/forum", label: "Forum" },
 ];
 
@@ -17,6 +18,32 @@ export function Navbar() {
   const { session } = useSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [notifs, setNotifs] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/notifications")
+      .then((r) => r.json())
+      .then((d) => { setNotifs(d.notifications || []); setUnreadCount(d.unreadCount || 0); })
+      .catch(() => {});
+  }, [session]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const markAllRead = async () => {
+    await fetch("/api/notifications", { method: "PATCH", body: JSON.stringify({ readAll: true }) });
+    setNotifs((prev) => prev.map((n: any) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -50,6 +77,38 @@ export function Navbar() {
             <div className="w-px h-6 bg-white/[0.06] mx-2" />
             {session ? (
               <div className="flex items-center gap-2">
+                <div className="relative" ref={notifRef}>
+                  <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 text-white/30 hover:text-white/70 rounded-lg hover:bg-white/[0.06] transition-all">
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+                  </button>
+                  {showNotifs && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white/[0.03] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                        <span className="font-semibold text-sm">Notifications</span>
+                        {unreadCount > 0 && <button onClick={markAllRead} className="text-xs text-emerald-400 hover:underline">Mark all read</button>}
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifs.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-white/40 text-sm">No notifications</div>
+                        ) : (
+                          notifs.slice(0, 5).map((n: any) => (
+                            <Link key={n.id} href={n.link || "#"} onClick={() => setShowNotifs(false)}
+                              className={`block px-4 py-3 hover:bg-white/[0.03] transition-colors ${!n.read ? "bg-white/[0.03]" : ""}`}>
+                              <div className="text-sm font-medium">{n.title}</div>
+                              <div className="text-xs text-white/40 mt-0.5 truncate">{n.message}</div>
+                            </Link>
+                          ))
+                        )}
+                      </div>
+                      {notifs.length > 0 && (
+                        <Link href="/notifications" onClick={() => setShowNotifs(false)} className="flex items-center justify-center gap-1 px-4 py-3 border-t border-white/[0.06] text-xs text-emerald-400 hover:bg-white/[0.03]">
+                          View all <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.06] transition-all group">
                   {session.user?.image ? (
                     <img src={session.user.image} alt="" className="w-6 h-6 rounded-full ring-2 ring-white/[0.06]" />

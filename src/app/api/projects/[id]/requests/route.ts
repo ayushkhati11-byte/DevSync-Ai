@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,5 +38,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     data: { projectId: id, userId: session.user.id, message: message || null },
     include: { user: { select: { id: true, name: true, image: true } } },
   });
+
+  const projectWithOwner = await prismaClient.project.findUnique({ where: { id }, select: { ownerId: true, name: true } });
+  if (projectWithOwner) {
+    await createNotification({
+      userId: projectWithOwner.ownerId,
+      type: "collab_request",
+      title: "New collaboration request",
+      message: `${session.user.name || "Someone"} wants to join "${projectWithOwner.name}"`,
+      link: `/projects/${id}`,
+    });
+  }
+
   return NextResponse.json(req, { status: 201 });
 }

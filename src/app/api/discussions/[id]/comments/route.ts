@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,6 +20,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: { content, authorId: session.user.id, discussionId: id },
       include: { author: { select: { id: true, name: true, image: true } } },
     });
+
+    if (discussion.authorId !== session.user.id) {
+      await createNotification({
+        userId: discussion.authorId,
+        type: "comment_reply",
+        title: "New comment",
+        message: `${session.user.name || "Someone"} commented on "${discussion.title}"`,
+        link: `/forum/${id}`,
+        commentId: comment.id,
+      });
+    }
+
     return NextResponse.json(comment, { status: 201 });
   } catch { return NextResponse.json({ error: "Failed to create comment" }, { status: 500 }); }
 }

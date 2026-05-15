@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Users, Check, ExternalLink, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, Check, ExternalLink, AlertCircle, Sparkles, X, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { useSession } from "@/lib/session";
@@ -16,6 +16,11 @@ export default function IdeaDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [creatingRepo, setCreatingRepo] = useState(false);
+  const [useExistingRepo, setUseExistingRepo] = useState(true);
+  const [projectForm, setProjectForm] = useState({ repoUrl: "", name: "" });
 
   useEffect(() => {
     if (!id) return;
@@ -32,6 +37,37 @@ export default function IdeaDetail() {
       setIdea(await res.json());
     } catch { alert("Failed to join"); }
     finally { setJoining(false); }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectForm.name) return;
+    setCreating(true);
+    try {
+      let repoUrl = projectForm.repoUrl;
+      if (!useExistingRepo && projectForm.name) {
+        setCreatingRepo(true);
+        const createRes = await fetch("/api/github/create-repo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: projectForm.name, description: idea.vision.slice(0, 200) }),
+        });
+        setCreatingRepo(false);
+        if (!createRes.ok) { alert((await createRes.json()).error || "Failed to create repo"); setCreating(false); return; }
+        const repoData = await createRes.json();
+        repoUrl = `https://github.com/${repoData.fullName}`;
+      }
+      if (!repoUrl) { alert("Repository URL is required"); setCreating(false); return; }
+      const res = await fetch(`/api/ideas/${id}/project`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectForm.name, repoUrl }),
+      });
+      if (!res.ok) { alert((await res.json()).error || "Failed to create project"); return; }
+      const project = await res.json();
+      router.push(`/workspace/${project.id}`);
+    } catch { alert("Failed to create project"); }
+    finally { setCreating(false); setCreatingRepo(false); }
   };
 
   if (loading) return <FullPageLoading />;
@@ -73,7 +109,15 @@ export default function IdeaDetail() {
               {joining ? <LoadingSpinner size={20} /> : hasJoined ? <span className="flex items-center justify-center gap-2"><Check className="w-4 h-4" /> Joined</span> : isFull ? "Team is full" : "Join This Idea"}
             </button>
           )}
-          {isOwner && <div className="w-full py-3 rounded-xl bg-white/[0.04] text-white/40 text-center text-sm border border-white/[0.06]">You own this idea</div>}
+          {isOwner && (
+            <div className="space-y-3">
+              <div className="w-full py-3 rounded-xl bg-white/[0.04] text-white/40 text-center text-sm border border-white/[0.06]">You own this idea</div>
+              <button onClick={() => setShowCreateProject(true)} disabled={idea.status === "completed"}
+                className="w-full py-3 rounded-xl font-medium transition-all text-sm bg-gradient-to-r from-emerald-500 to-cyan-500 text-black hover:from-emerald-400 hover:to-cyan-400 disabled:opacity-50 flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4" />{idea.status === "completed" ? "Project Created" : "Create Project & Workspace"}
+              </button>
+            </div>
+          )}
 
           {idea.repoUrl && <a href={idea.repoUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full mt-3 py-3 bg-white/[0.06] rounded-xl text-sm hover:bg-white/[0.08] transition-colors border border-white/[0.06]"><ExternalLink className="w-4 h-4" /> View Repository</a>}
         </div>
@@ -89,6 +133,45 @@ export default function IdeaDetail() {
             ))}</div>
           ) : <p className="text-sm text-white/40">No members yet</p>}
         </div>
+
+        {showCreateProject && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-400" /><h2 className="text-lg font-bold">Create Project</h2></div>
+                <button onClick={() => setShowCreateProject(false)} className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"><X className="w-5 h-5 text-white/40" /></button>
+              </div>
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                <div><label className="block text-sm font-medium mb-1.5">Project Name</label>
+                  <input type="text" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} required maxLength={100}
+                    className="w-full px-4 py-2.5 bg-[#050505] border border-white/[0.06] rounded-lg focus:border-emerald-500/50 focus:outline-none text-sm" placeholder={idea.title} /></div>
+                
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <button type="button" onClick={() => setUseExistingRepo(true)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${useExistingRepo ? "bg-white text-black" : "bg-white/[0.06] text-white/50"}`}>Use existing</button>
+                    <button type="button" onClick={() => setUseExistingRepo(false)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!useExistingRepo ? "bg-white text-black" : "bg-white/[0.06] text-white/50"}`}>Create new</button>
+                  </div>
+                  {useExistingRepo ? (
+                    <div className="relative"><GitBranch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input type="url" value={projectForm.repoUrl} onChange={(e) => setProjectForm({ ...projectForm, repoUrl: e.target.value })}
+                        className="w-full pl-9 pr-4 py-2.5 bg-[#050505] border border-white/[0.06] rounded-lg focus:border-emerald-500/50 focus:outline-none text-sm" placeholder="https://github.com/user/repo" /></div>
+                  ) : (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                      <p className="text-xs text-emerald-400">A new GitHub repository will be created under your account with the project name.</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-xs text-white/40">All {idea.members?.length || 0} team members will be added to the project workspace.</div>
+                <button type="submit" disabled={creating} className="w-full py-3 bg-white text-black rounded-xl font-semibold hover:bg-white/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {creating ? <LoadingSpinner size={18} /> : <Sparkles className="w-4 h-4" />}{creatingRepo ? "Creating repo..." : creating ? "Creating..." : useExistingRepo ? "Create Project" : "Create Project & Repo"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

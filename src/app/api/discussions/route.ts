@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
   const projectId = searchParams.get("projectId");
+  const cursor = searchParams.get("cursor");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
   const where: Record<string, unknown> = {};
   if (category && category !== "all") where.category = category;
   if (projectId) where.projectId = projectId;
+  if (cursor) where.createdAt = { lt: new Date(cursor) };
 
   try {
     const discussions = await prismaClient.discussion.findMany({
@@ -23,9 +26,12 @@ export async function GET(request: NextRequest) {
         project: { select: { id: true, name: true } },
         _count: { select: { comments: true } },
       },
-      orderBy: { createdAt: "desc" }, take: 50,
+      orderBy: { createdAt: "desc" }, take: limit + 1,
     });
-    return NextResponse.json(discussions);
+    const hasMore = discussions.length > limit;
+    const items = hasMore ? discussions.slice(0, -1) : discussions;
+    const nextCursor = hasMore ? items[items.length - 1]?.createdAt?.toISOString() : null;
+    return NextResponse.json({ discussions: items, nextCursor, hasMore });
   } catch { return NextResponse.json({ error: "Failed to list discussions" }, { status: 500 }); }
 }
 

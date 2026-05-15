@@ -33,7 +33,7 @@ export default function Forum() {
       if (category !== "all") params.set("category", category);
       const res = await fetch(`/api/discussions?${params.toString()}`);
       if (!res.ok) { setError("Failed to load"); return; }
-      const ddata = await res.json(); setDiscussions(Array.isArray(ddata) ? ddata : []);
+      const data = await res.json(); setDiscussions(Array.isArray(data.discussions) ? data.discussions : Array.isArray(data) ? data : []);
     } catch { setError("Failed to load"); }
     finally { setLoading(false); }
   };

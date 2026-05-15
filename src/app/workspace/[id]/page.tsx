@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { GitBranch, Copy, Check, ExternalLink, Users, MessageSquare, AlertCircle, X } from "lucide-react";
+import { GitBranch, Copy, Check, ExternalLink, Users, MessageSquare, AlertCircle, X, Plus, AlertTriangle, CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { useSession } from "@/lib/session";
-import { FullPageLoading } from "@/components/loading-animation";
+import { FullPageLoading, LoadingSpinner } from "@/components/loading-animation";
 
 export default function Workspace() {
   const { id } = useParams<{ id: string }>();
@@ -17,12 +17,25 @@ export default function Workspace() {
   const [copied, setCopied] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [handlingReq, setHandlingReq] = useState<string | null>(null);
+  const [issues, setIssues] = useState<any[]>([]);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [newIssue, setNewIssue] = useState({ title: "", description: "", priority: "medium" });
+  const [creatingIssue, setCreatingIssue] = useState(false);
 
   const userId = session?.user?.id;
   const isOwner = userId && project?.ownerId === userId;
 
   useEffect(() => { if (!id) return; fetchProject(); }, [id]);
   useEffect(() => { if (isOwner && project) fetchRequests(); }, [isOwner, project]);
+  useEffect(() => { if (project) fetchIssues(); }, [project]);
+
+  const fetchIssues = async () => { try { const r = await fetch(`/api/projects/${id}/issues`); if (r.ok) setIssues(await r.json()); } catch {} };
+  const handleCreateIssue = async (e: React.FormEvent) => { e.preventDefault(); if (!newIssue.title) return; setCreatingIssue(true);
+    try { const r = await fetch(`/api/projects/${id}/issues`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newIssue) });
+      if (r.ok) { setShowIssueForm(false); setNewIssue({ title: "", description: "", priority: "medium" }); fetchIssues(); }
+    } catch {} finally { setCreatingIssue(false); }
+  };
+  const handleStatusChange = async (issueId: string, status: string) => { await fetch(`/api/projects/${id}/issues/${issueId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); fetchIssues(); };
 
   const fetchProject = async () => {
     try { const r = await fetch(`/api/projects/${id}`); if (!r.ok) throw new Error(); setProject(await r.json()); }
@@ -59,39 +72,50 @@ export default function Workspace() {
               </div>
             ))}</div>
           </div>
-        )}
+)}
 
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 sm:p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4"><GitBranch className="w-5 h-5 text-emerald-400" /><h2 className="font-semibold">Clone Repository</h2></div>
-          <div className="flex items-center gap-2 bg-[#050505] border border-white/[0.06] rounded-lg p-3 mb-4">
-            <code className="flex-1 text-sm text-white/70 truncate">{project.repoUrl}</code>
-            <button onClick={() => { navigator.clipboard.writeText(project.repoUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="flex items-center gap-1 px-3 py-1.5 bg-white/[0.06] rounded-md text-xs hover:bg-white/[0.08] transition-colors shrink-0">{copied ? <><Check className="w-3 h-3 text-emerald-400" />Copied</> : <><Copy className="w-3 h-3" />Copy</>}</button>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-400" /><h2 className="font-semibold">Tasks & Issues</h2>
+              <span className="text-xs text-white/40">({issues.length})</span></div>
+            <button onClick={() => setShowIssueForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold hover:bg-white/90 transition-all">
+              <Plus className="w-3.5 h-3.5" /> Add</button>
           </div>
-          <div className="text-sm text-white/40"><p className="mb-2 font-medium text-white/50">Quick start:</p>
-            <pre className="bg-[#050505] border border-white/[0.06] rounded-lg p-3 sm:p-4 text-xs sm:text-sm text-white/70 overflow-x-auto"><code>{`git clone ${project.repoUrl}\ncd ${project.name}\nnpm install\nnpm run dev`}</code></pre></div>
-        </div>
+          
+          {showIssueForm && (
+            <form onSubmit={handleCreateIssue} className="mb-4 p-4 bg-white/[0.04] rounded-lg border border-white/[0.06]">
+              <input type="text" value={newIssue.title} onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })} placeholder="Issue title" required maxLength={200}
+                className="w-full px-3 py-2 bg-[#050505] border border-white/[0.06] rounded-lg text-sm mb-2" />
+              <textarea value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })} placeholder="Description (optional)" rows={2}
+                className="w-full px-3 py-2 bg-[#050505] border border-white/[0.06] rounded-lg text-sm mb-2" />
+              <div className="flex items-center gap-2 mb-2">
+                <select value={newIssue.priority} onChange={(e) => setNewIssue({ ...newIssue, priority: e.target.value })}
+                  className="px-2 py-1 bg-[#050505] border border-white/[0.06] rounded text-xs">
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={creatingIssue} className="px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold disabled:opacity-50">{creatingIssue ? "Creating..." : "Create"}</button>
+                <button type="button" onClick={() => setShowIssueForm(false)} className="px-3 py-1.5 text-white/40 hover:text-white text-xs">Cancel</button>
+              </div>
+            </form>
+          )}
 
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 sm:p-6">
-            <div className="flex items-center gap-2 mb-4"><Users className="w-5 h-5 text-cyan-400" /><h2 className="font-semibold">Team ({project.members?.length || 0})</h2></div>
-            {project.members?.length > 0 ? (
-              <div className="space-y-3">{project.members.map((m: any) => (
-                <div key={m.id} className="flex items-center gap-3">{m.user?.image ? <img src={m.user.image} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 bg-white/[0.06] rounded-full flex items-center justify-center text-xs">{m.user?.name?.[0] || "U"}</div>}
-                  <div><Link href={`/profile/${m.user?.id}`} className="text-sm font-medium hover:text-emerald-400 transition-colors">{m.user?.name || "Anonymous"}</Link><div className="text-xs text-white/40 capitalize">{m.role}</div></div></div>
-              ))}</div>
-            ) : <p className="text-sm text-white/40">No team members</p>}
-          </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 sm:p-6">
-            <div className="flex items-center gap-2 mb-4"><GitBranch className="w-5 h-5 text-emerald-400" /><h2 className="font-semibold">Quick Links</h2></div>
-            <div className="space-y-2">
-              {[{ href: `/projects/${project.id}`, label: "Project Details", sub: "View AI audit and README", icon: ExternalLink }, { href: `/forum?projectId=${project.id}`, label: "Discussions", sub: "Team chat and feedback", icon: MessageSquare }].map((link) => (
-                <Link key={link.href} href={link.href} className="flex items-center gap-3 p-3 bg-white/[0.06]/30 rounded-lg hover:bg-white/[0.06]/50 transition-colors">
-                  <link.icon className="w-4 h-4 text-white/40 shrink-0" /><div className="min-w-0 flex-1"><div className="text-sm font-medium">{link.label}</div><div className="text-xs text-white/40">{link.sub}</div></div></Link>
-              ))}
-              <a href={project.repoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white/[0.06]/30 rounded-lg hover:bg-white/[0.06]/50 transition-colors">
-                <GitBranch className="w-4 h-4 text-white/40 shrink-0" /><div className="min-w-0 flex-1"><div className="text-sm font-medium">GitHub Repository</div><div className="text-xs text-white/40">Issues, PRs, and code</div></div></a>
-            </div>
-          </div>
+          {issues.length === 0 ? <p className="text-sm text-white/40">No issues yet</p> : (
+            <div className="space-y-2">{issues.map((issue) => (
+              <div key={issue.id} className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-lg">
+                <button onClick={() => handleStatusChange(issue.id, issue.status === "resolved" ? "open" : "resolved")} className="shrink-0">
+                  {issue.status === "resolved" ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Circle className="w-5 h-5 text-white/30" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm ${issue.status === "resolved" ? "text-white/40 line-through" : ""}`}>{issue.title}</div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={`px-1.5 py-0.5 rounded ${issue.priority === "urgent" ? "bg-red-500/20 text-red-400" : issue.priority === "high" ? "bg-orange-500/20 text-orange-400" : issue.priority === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-white/[0.06] text-white/40"}`}>{issue.priority}</span>
+                  </div>
+                </div>
+              </div>
+            ))}</div>
+          )}
         </div>
       </main>
     </div>

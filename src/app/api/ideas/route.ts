@@ -11,17 +11,30 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const role = searchParams.get("role");
+  const category = searchParams.get("category");
+  const search = searchParams.get("search");
+  const cursor = searchParams.get("cursor");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
   const where: Record<string, unknown> = {};
   if (status && status !== "all") where.status = status;
   if (role) where.requiredRoles = { path: "$", array_contains: role };
+  if (category && category !== "all") where.category = category;
+  if (search) where.OR = [
+    { title: { contains: search, mode: "insensitive" } },
+    { vision: { contains: search, mode: "insensitive" } },
+  ];
+  if (cursor) where.createdAt = { lt: new Date(cursor) };
 
   try {
     const ideas = await prismaClient.ideaTicket.findMany({
       where, include: { owner: { select: { id: true, name: true, image: true } }, _count: { select: { members: true } } },
-      orderBy: { createdAt: "desc" }, take: 50,
+      orderBy: { createdAt: "desc" }, take: limit + 1,
     });
-    return NextResponse.json(ideas);
+    const hasMore = ideas.length > limit;
+    const items = hasMore ? ideas.slice(0, -1) : ideas;
+    const nextCursor = hasMore ? items[items.length - 1]?.createdAt?.toISOString() : null;
+    return NextResponse.json({ ideas: items, nextCursor, hasMore });
   } catch { return NextResponse.json({ error: "Failed to list ideas" }, { status: 500 }); }
 }
 
@@ -30,13 +43,16 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { title, vision, requiredRoles, maxMembers } = await request.json();
+    const { title, vision, requiredRoles, maxMembers, category } = await request.json();
     if (!title || !vision) return NextResponse.json({ error: "Title and vision are required" }, { status: 400 });
     if (typeof title !== "string" || title.length > 200) return NextResponse.json({ error: "Invalid title" }, { status: 400 });
     if (typeof vision !== "string" || vision.length > 5000) return NextResponse.json({ error: "Vision too long" }, { status: 400 });
 
+    const validCategories = ["web-app", "mobile", "ai-ml", "game", "tool", "other"];
+    if (category && !validCategories.includes(category)) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+
     const idea = await prismaClient.ideaTicket.create({
-      data: { title, vision, requiredRoles: requiredRoles || [], maxMembers: maxMembers || 4, ownerId: userId, members: { create: { userId, role: "owner" } } },
+      data: { title, vision, requiredRoles: requiredRoles || [], maxMembers: maxMembers || 4, category: category || null, ownerId: userId, members: { create: { userId, role: "owner" } } },
       include: { owner: { select: { id: true, name: true, image: true } }, _count: { select: { members: true } } },
     });
     return NextResponse.json(idea, { status: 201 });

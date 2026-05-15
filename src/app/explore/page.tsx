@@ -37,7 +37,7 @@ export default function Explore() {
       if (range && scoreRange !== "All") params.set("minScore", String(range.min));
       if (techFilter) params.set("tech", techFilter);
       const res = await fetch(`/api/projects?${params.toString()}`);
-      const pdata = await res.json(); setProjects(Array.isArray(pdata) ? pdata : []);
+      const data = await res.json(); setProjects(Array.isArray(data.projects) ? data.projects : Array.isArray(data) ? data : []);
     } catch { setProjects([]); }
     finally { setLoading(false); }
   };

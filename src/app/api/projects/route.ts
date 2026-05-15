@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
   const tech = searchParams.get("tech");
   const minScore = searchParams.get("minScore");
   const search = searchParams.get("search");
+  const cursor = searchParams.get("cursor");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
   const where: Record<string, unknown> = { status: "active" };
   if (tech) where.techStack = { path: "$", array_contains: tech };
@@ -20,13 +22,17 @@ export async function GET(request: NextRequest) {
     { name: { contains: search, mode: "insensitive" } },
     { description: { contains: search, mode: "insensitive" } },
   ];
+  if (cursor) where.createdAt = { lt: new Date(cursor) };
 
   try {
     const projects = await prismaClient.project.findMany({
       where, include: { owner: { select: { id: true, name: true, image: true } }, _count: { select: { members: true } } },
-      orderBy: { createdAt: "desc" }, take: 50,
+      orderBy: { createdAt: "desc" }, take: limit + 1,
     });
-    return NextResponse.json(projects);
+    const hasMore = projects.length > limit;
+    const items = hasMore ? projects.slice(0, -1) : projects;
+    const nextCursor = hasMore ? items[items.length - 1]?.createdAt?.toISOString() : null;
+    return NextResponse.json({ projects: items, nextCursor, hasMore });
   } catch {
     return NextResponse.json({ error: "Failed to list projects" }, { status: 500 });
   }

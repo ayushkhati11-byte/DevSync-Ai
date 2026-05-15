@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,6 +18,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (existing) return NextResponse.json({ error: "Already joined" }, { status: 409 });
 
     await prismaClient.userIdea.create({ data: { userId: session.user.id, ideaId: id, role: "member" } });
+
+    const ideaWithOwner = await prismaClient.ideaTicket.findUnique({ where: { id }, select: { ownerId: true, title: true } });
+    if (ideaWithOwner && ideaWithOwner.ownerId !== session.user.id) {
+      await createNotification({
+        userId: ideaWithOwner.ownerId,
+        type: "idea_joined",
+        title: "New team member",
+        message: `${session.user.name || "Someone"} joined your idea "${ideaWithOwner.title}"`,
+        link: `/ideas/${id}`,
+      });
+    }
 
     const updated = await prismaClient.ideaTicket.findUnique({
       where: { id }, include: {

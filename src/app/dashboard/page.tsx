@@ -3,7 +3,7 @@
 import { useSession } from "@/lib/session";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Plus, FolderOpen, Lightbulb, MessageSquare, ArrowRight, ExternalLink } from "lucide-react";
+import { Plus, FolderOpen, Lightbulb, MessageSquare, ArrowRight, ExternalLink, Activity } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { GradeBadge } from "@/components/grade-badge";
@@ -32,8 +32,8 @@ export default function Dashboard() {
       fetch("/api/ideas").then((r) => r.json()),
       fetch("/api/projects/requests/pending").then((r) => r.json()).catch(() => ({ count: 0 })),
     ]).then(([p, i, r]) => {
-      setProjects(Array.isArray(p) ? p : []);
-      setIdeas(Array.isArray(i) ? i : []);
+      setProjects(Array.isArray(p.projects) ? p.projects : Array.isArray(p) ? p : []);
+      setIdeas(Array.isArray(i.ideas) ? i.ideas : Array.isArray(i) ? i : []);
       setPendingRequests(r?.count || 0);
     }).catch(() => {}).finally(() => setLoadingData(false));
   }, [session]);
@@ -83,6 +83,12 @@ export default function Dashboard() {
             <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7 mb-2.5 text-white/50" />
             <div className="font-semibold text-sm sm:text-base">Forum</div>
             <div className="text-xs sm:text-sm text-white/40">Join discussions</div>
+          </Link>
+          <Link href="/activity"
+            className="p-4 sm:p-5 rounded-xl border bg-white/[0.03] border-white/[0.06] hover:border-white/[0.08] transition-colors block">
+            <Activity className="w-6 h-6 sm:w-7 sm:h-7 mb-2.5 text-white/50" />
+            <div className="font-semibold text-sm sm:text-base">Activity</div>
+            <div className="text-xs sm:text-sm text-white/40">Recent updates</div>
           </Link>
         </div>
 
