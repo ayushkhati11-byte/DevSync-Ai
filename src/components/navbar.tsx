@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Menu, X, LogOut, Sparkles, Bell, Check, ArrowRight } from "lucide-react";
+import { Menu, X, LogOut, Sparkles, Bell, Check, ArrowRight, XCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/session";
 import { authClient } from "@/lib/auth-client";
@@ -23,13 +23,12 @@ export function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const fetchNotifs = async () => {
     if (!session) return;
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then((d) => { setNotifs(d.notifications || []); setUnreadCount(d.unreadCount || 0); })
-      .catch(() => {});
-  }, [session]);
+    try { const r = await fetch("/api/notifications"); const d = await r.json(); setNotifs(d.notifications || []); setUnreadCount(d.unreadCount || 0); } catch {}
+  };
+
+  useEffect(() => { fetchNotifs(); const t = setInterval(fetchNotifs, 15000); return () => clearInterval(t); }, [session]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -80,7 +79,7 @@ export function Navbar() {
                 <div className="relative" ref={notifRef}>
                   <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 text-white/30 hover:text-white/70 rounded-lg hover:bg-white/[0.06] transition-all">
                     <Bell className="w-4 h-4" />
-                    {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+                    {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-amber-500 text-black text-[10px] font-bold rounded-full px-1">{unreadCount > 99 ? "99+" : unreadCount}</span>}
                   </button>
                   {showNotifs && (
                     <div className="absolute right-0 mt-2 w-80 bg-white/[0.03] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden">
@@ -93,9 +92,13 @@ export function Navbar() {
                           <div className="px-4 py-8 text-center text-white/40 text-sm">No notifications</div>
                         ) : (
                           notifs.slice(0, 5).map((n: any) => (
-                            <Link key={n.id} href={n.link || "#"} onClick={() => setShowNotifs(false)}
-                              className={`block px-4 py-3 hover:bg-white/[0.03] transition-colors ${!n.read ? "bg-white/[0.03]" : ""}`}>
-                              <div className="text-sm font-medium">{n.title}</div>
+                            <Link key={n.id} href={n.link || "#"} onClick={() => { setShowNotifs(false); if (!n.read) fetch(`/api/notifications`, { method: "PATCH", body: JSON.stringify({ id: n.id }) }); }}
+                              className={`block px-4 py-3 hover:bg-white/[0.03] transition-colors ${!n.read ? "bg-emerald-500/[0.04] border-l-2 border-emerald-500" : "border-l-2 border-transparent"}`}>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${n.type === "collab_request" ? "bg-amber-500/20 text-amber-400" : n.type === "collab_accepted" ? "bg-emerald-500/20 text-emerald-400" : n.type === "comment_reply" ? "bg-cyan-500/20 text-cyan-400" : "bg-white/[0.06] text-white/40"}`}>{n.type.replace("_", " ")}</span>
+                                {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-auto shrink-0" />}
+                              </div>
+                              <div className="text-sm font-medium mt-1">{n.title}</div>
                               <div className="text-xs text-white/40 mt-0.5 truncate">{n.message}</div>
                             </Link>
                           ))
@@ -158,6 +161,10 @@ export function Navbar() {
             <hr className="border-white/[0.06] my-2" />
             {session ? (
               <>
+                <Link href="/notifications" onClick={() => setOpen(false)} className="flex items-center gap-2 text-sm text-white/40 hover:text-white px-3 py-2.5 rounded-lg hover:bg-white/[0.06] w-full transition-all">
+                  <div className="relative"><Bell className="w-4 h-4" />{unreadCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center bg-amber-500 text-black text-[9px] font-bold rounded-full px-0.5">{unreadCount}</span>}</div>
+                  Notifications{unreadCount > 0 && <span className="text-amber-400"> ({unreadCount} new)</span>}
+                </Link>
                 <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.06] transition-all">
                   {session.user?.image ? <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" /> : (
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-bold text-black">
