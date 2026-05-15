@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; issueId: string }> }) {
   const { id, issueId } = await params;
@@ -30,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string; issueId: string }> }) {
   const { id, issueId } = await params;
-  const session = await auth.api.getSession({ headers: await session?.headers });
+  const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
 
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
