@@ -13,10 +13,50 @@ function hasRepoScope(scope: string | null | undefined) {
 async function getGitHubErrorMessage(res: Response) {
   try {
     const err = await res.json();
-    return typeof err?.message === "string" ? err.message : "Failed to create repo";
+    const message = typeof err?.message === "string" ? err.message : "Failed to create repo";
+    const details = Array.isArray(err?.errors)
+      ? err.errors
+          .map((item: { message?: string; field?: string; code?: string }) => item.message || item.field || item.code)
+          .filter(Boolean)
+          .join(", ")
+      : "";
+
+    return details ? `${message}: ${details}` : message;
   } catch {
     return "Failed to create repo";
   }
+}
+
+function sanitizeRepoName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 90);
+}
+
+function withSuffix(repoName: string) {
+  const suffix = Date.now().toString(36).slice(-6);
+  return `${repoName.slice(0, 90)}-${suffix}`;
+}
+
+async function createGitHubRepo(accessToken: string, name: string, description: string, isPrivate: boolean) {
+  return fetch("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+      "User-Agent": "DevSync-AI",
+    },
+    body: JSON.stringify({
+      name,
+      description,
+      private: isPrivate,
+      auto_init: true,
+    }),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -38,24 +78,13 @@ export async function POST(request: NextRequest) {
     const { name, description, isPrivate } = await request.json();
     if (!name) return NextResponse.json({ error: "Repo name is required" }, { status: 400 });
 
-    const repoName = name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    const repoName = sanitizeRepoName(name);
     if (!repoName) return NextResponse.json({ error: "Repo name is invalid" }, { status: 400 });
-    
-    const res = await fetch("https://api.github.com/user/repos", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${account.accessToken}`,
-        Accept: "application/vnd.github.v3+json",
-        "Content-Type": "application/json",
-        "User-Agent": "DevSync-AI",
-      },
-      body: JSON.stringify({
-        name: repoName,
-        description: description || "",
-        private: isPrivate ?? false,
-        auto_init: true,
-      }),
-    });
+
+    let res = await createGitHubRepo(account.accessToken, repoName, description || "", isPrivate ?? false);
+    if (res.status === 422) {
+      res = await createGitHubRepo(account.accessToken, withSuffix(repoName), description || "", isPrivate ?? false);
+    }
 
     if (!res.ok) {
       const message = await getGitHubErrorMessage(res);
