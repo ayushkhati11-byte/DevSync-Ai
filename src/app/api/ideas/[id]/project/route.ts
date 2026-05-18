@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prismaClient } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { addGitHubCollaborators } from "@/lib/github-collaborators";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,6 +46,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         _count: { select: { members: true } },
       },
     });
+
+    // Add idea members as GitHub collaborators (non-blocking, errors don't fail the request)
+    if (idea.members.length > 0) {
+      const memberIds = idea.members.map((m) => m.userId);
+      addGitHubCollaborators(userId, memberIds, repoUrl).catch((error) => {
+        console.error("Failed to add GitHub collaborators:", error);
+      });
+    }
 
     await prismaClient.ideaTicket.update({
       where: { id },
