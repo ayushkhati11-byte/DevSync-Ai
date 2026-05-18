@@ -72,7 +72,7 @@ export default function Explore() {
         </div>
 
         {loading ? <ListSkeleton count={6} /> : filtered.length === 0 ? (
-          <EmptyState icon={Search} title="No projects found" description={projects.length === 0 ? "No projects imported yet." : "Try adjusting filters."} />
+          <EmptyState icon={Search} title="No projects found" lottie="/animations/empty-box.json" description={projects.length === 0 ? "No projects imported yet." : "Try adjusting filters."} />
         ) : view === "grid" ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((project) => (

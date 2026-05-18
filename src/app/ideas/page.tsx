@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ListSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { LoadingSpinner, FullPageLoading } from "@/components/loading-animation";
+import { LottieAnimation } from "@/components/lottie-animation";
 
 const STATUSES = ["all", "open", "in-progress", "completed"];
 const CATEGORIES = [
@@ -70,9 +71,14 @@ export default function Ideas() {
       <Navbar />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-4xl font-bold">Idea Hub</h1>
-            <p className="text-white/40 mt-1">Find teammates or post your own project idea</p>
+          <div className="flex items-start gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-bold">Idea Hub</h1>
+              <p className="text-white/40 mt-1">Find teammates or post your own project idea</p>
+            </div>
+            <div className="hidden sm:block w-16 h-16 shrink-0 opacity-60">
+              <LottieAnimation src="/animations/fetching-notes.json" className="w-full h-full" />
+            </div>
           </div>
           <div className="flex gap-2">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -132,7 +138,7 @@ export default function Ideas() {
         {loading ? <ListSkeleton count={4} /> : error ? (
           <div className="flex items-center gap-2 justify-center py-16 text-red-400"><AlertCircle className="w-5 h-5" />{error}</div>
         ) : ideas.length === 0 ? (
-          <EmptyState icon={Lightbulb} title="No ideas yet" description={session ? "Be the first to post an idea!" : "Sign in to post an idea."} />
+          <EmptyState icon={Lightbulb} title="No ideas yet" lottie="/animations/empty-box.json" description={session ? "Be the first to post an idea!" : "Sign in to post an idea."} />
         ) : (
           <div className="grid sm:grid-cols-2 gap-4">
             {ideas.map((idea) => (

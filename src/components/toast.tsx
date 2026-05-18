@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { CheckCircle, XCircle, X } from "lucide-react";
+import { XCircle, X } from "lucide-react";
+import { LottieAnimation } from "@/components/lottie-animation";
 
 type Toast = {
   id: number;
@@ -44,7 +45,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }`}
           >
             {t.type === "success" ? (
-              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="w-5 h-5 shrink-0 mt-0.5">
+                <LottieAnimation src="/animations/success-check.json" loop={false} className="w-full h-full" />
+              </div>
             ) : (
               <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
             )}

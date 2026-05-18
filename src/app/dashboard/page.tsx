@@ -11,7 +11,8 @@ import { TechStack } from "@/components/tech-stack";
 import { CardSkeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { TourProvider } from "@/components/tour";
-import { LoadingSpinner, FullPageLoading } from "@/components/loading-animation";
+import { FullPageLoading } from "@/components/loading-animation";
+import { LottieAnimation } from "@/components/lottie-animation";
 
 export default function Dashboard() {
   const { session, loading: sessionLoading } = useSession();
@@ -50,9 +51,14 @@ export default function Dashboard() {
       <Navbar />
       <TourProvider show={showTour}>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">Welcome back, {session.user?.name || "Developer"}</h1>
-          <p className="text-white/40 mt-1">Manage your projects and collaborations</p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Welcome back, {session.user?.name || "Developer"}</h1>
+            <p className="text-white/40 mt-1">Manage your projects and collaborations</p>
+          </div>
+          <div className="hidden sm:block w-28 h-28 opacity-60">
+            <LottieAnimation src="/animations/lottie-lego.json" className="w-full h-full" />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-10">
@@ -95,7 +101,7 @@ export default function Dashboard() {
         {loadingData ? (
           <div className="space-y-3"><CardSkeleton /><CardSkeleton /></div>
         ) : yourProjects.length === 0 ? (
-          <EmptyState icon={FolderOpen} title="No projects yet"
+          <EmptyState icon={FolderOpen} title="No projects yet" lottie="/animations/empty-box.json"
             description="Import your first project from GitHub to get an AI-powered audit."
             action={{ label: "Import Project", onClick: () => router.push("/projects/new") }} />
         ) : (

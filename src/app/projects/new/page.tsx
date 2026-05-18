@@ -9,6 +9,7 @@ import { TechStack } from "@/components/tech-stack";
 import { GradeBadge } from "@/components/grade-badge";
 import { ScoreRadar } from "@/components/score-radar";
 import { LoadingSpinner, FullPageLoading } from "@/components/loading-animation";
+import { LottieAnimation } from "@/components/lottie-animation";
 
 type Repo = { id: number; name: string; url: string; description: string | null; language: string | null; stars: number };
 
@@ -103,7 +104,10 @@ export default function NewProject() {
               <a href={selectedRepo.url} target="_blank" rel="noreferrer" className="shrink-0 p-2 bg-white/[0.06] rounded-lg hover:bg-white/[0.08] transition-colors"><ExternalLink className="w-4 h-4 text-white/40" /></a>
             </div>
             {analyzing && (
-              <div className="mt-4 pt-4 border-t border-white/[0.06]"><LoadingSpinner text="Trying Gemini AI..." /></div>
+              <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                <LottieAnimation src="/animations/ai-processing.json" className="w-24 h-24 mx-auto opacity-80" />
+                <LoadingSpinner text="Trying Gemini AI..." />
+              </div>
             )}
             {auditError && <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-start gap-2 text-red-400 text-sm"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{auditError}</span></div>}
           </div>
