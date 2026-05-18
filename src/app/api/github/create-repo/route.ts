@@ -41,6 +41,16 @@ function withSuffix(repoName: string) {
   return `${repoName.slice(0, 90)}-${suffix}`;
 }
 
+function sanitizeDescription(description: unknown) {
+  if (typeof description !== "string") return "";
+
+  return description
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 350);
+}
+
 async function createGitHubRepo(accessToken: string, name: string, description: string, isPrivate: boolean) {
   return fetch("https://api.github.com/user/repos", {
     method: "POST",
@@ -81,9 +91,10 @@ export async function POST(request: NextRequest) {
     const repoName = sanitizeRepoName(name);
     if (!repoName) return NextResponse.json({ error: "Repo name is invalid" }, { status: 400 });
 
-    let res = await createGitHubRepo(account.accessToken, repoName, description || "", isPrivate ?? false);
+    const repoDescription = sanitizeDescription(description);
+    let res = await createGitHubRepo(account.accessToken, repoName, repoDescription, isPrivate ?? false);
     if (res.status === 422) {
-      res = await createGitHubRepo(account.accessToken, withSuffix(repoName), description || "", isPrivate ?? false);
+      res = await createGitHubRepo(account.accessToken, withSuffix(repoName), repoDescription, isPrivate ?? false);
     }
 
     if (!res.ok) {
