@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useSession } from "@/lib/session";
@@ -18,7 +18,7 @@ export default function SignIn() {
 
   const handleGitHubSignIn = async () => {
     setLoading(true);
-    try { await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard" }); }
+    try { await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard", scopes: ["repo"] }); }
     catch { setLoading(false); }
   };
 

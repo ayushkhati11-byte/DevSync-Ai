@@ -3,6 +3,22 @@ import { auth } from "@/lib/auth";
 import { prismaClient } from "@/lib/prisma";
 import { headers } from "next/headers";
 
+function hasRepoScope(scope: string | null | undefined) {
+  if (!scope) return true;
+
+  const scopes = scope.split(/[\s,]+/).filter(Boolean);
+  return scopes.includes("repo") || scopes.includes("public_repo");
+}
+
+async function getGitHubErrorMessage(res: Response) {
+  try {
+    const err = await res.json();
+    return typeof err?.message === "string" ? err.message : "Failed to create repo";
+  } catch {
+    return "Failed to create repo";
+  }
+}
+
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user?.id;
@@ -11,12 +27,19 @@ export async function POST(request: NextRequest) {
 
   const account = await prismaClient.account.findFirst({ where: { userId, providerId: "github" } });
   if (!account?.accessToken) return NextResponse.json({ error: "No GitHub token found" }, { status: 400 });
+  if (!hasRepoScope(account.scope)) {
+    return NextResponse.json(
+      { error: "GitHub permission missing. Sign out, sign in with GitHub again, and approve repository access." },
+      { status: 403 }
+    );
+  }
 
   try {
     const { name, description, isPrivate } = await request.json();
     if (!name) return NextResponse.json({ error: "Repo name is required" }, { status: 400 });
 
-    const repoName = name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+    const repoName = name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    if (!repoName) return NextResponse.json({ error: "Repo name is invalid" }, { status: 400 });
     
     const res = await fetch("https://api.github.com/user/repos", {
       method: "POST",
@@ -24,6 +47,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${account.accessToken}`,
         Accept: "application/vnd.github.v3+json",
         "Content-Type": "application/json",
+        "User-Agent": "DevSync-AI",
       },
       body: JSON.stringify({
         name: repoName,
@@ -34,8 +58,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      return NextResponse.json({ error: err.message || "Failed to create repo" }, { status: res.status });
+      const message = await getGitHubErrorMessage(res);
+      if ([401, 403, 404].includes(res.status)) {
+        return NextResponse.json(
+          { error: `${message}. Sign out, sign in with GitHub again, and approve repository access.` },
+          { status: 403 }
+        );
+      }
+      return NextResponse.json({ error: message }, { status: res.status });
     }
 
     const repo = await res.json();
