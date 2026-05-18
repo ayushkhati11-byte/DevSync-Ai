@@ -28,7 +28,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const ideas = await prismaClient.ideaTicket.findMany({
-      where, include: { owner: { select: { id: true, name: true, image: true } }, _count: { select: { members: true } } },
+      where,
+      include: {
+        owner: { select: { id: true, name: true, image: true } },
+        members: { select: { userId: true, role: true } },
+        _count: { select: { members: true } },
+      },
       orderBy: { createdAt: "desc" }, take: limit + 1,
     });
     const hasMore = ideas.length > limit;
