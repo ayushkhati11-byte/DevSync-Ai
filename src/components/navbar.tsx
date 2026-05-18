@@ -15,7 +15,7 @@ const links = [
 ];
 
 export function Navbar() {
-  const { session } = useSession();
+  const { session, refetch } = useSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -46,7 +46,11 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    router.push("/");
+    setOpen(false);
+    setShowNotifs(false);
+    await refetch();
+    router.replace("/signin");
+    router.refresh();
   };
 
   return (
@@ -122,8 +126,9 @@ export function Navbar() {
                   )}
                   <span className="text-sm text-white/60 group-hover:text-white transition-colors">{session.user?.name || "Dashboard"}</span>
                 </Link>
-                <button onClick={handleSignOut} className="p-2 text-white/30 hover:text-white/70 rounded-lg hover:bg-white/[0.06] transition-all" title="Sign out">
+                <button onClick={handleSignOut} className="flex items-center gap-2 px-3 py-2 text-sm text-white/50 hover:text-white rounded-lg hover:bg-white/[0.06] transition-all" title="Sign out">
                   <LogOut className="w-4 h-4" />
+                  <span>Sign out</span>
                 </button>
               </div>
             ) : (
